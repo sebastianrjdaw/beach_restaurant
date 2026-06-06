@@ -20,7 +20,6 @@ if ! grep -q '^APP_KEY=base64:' .env; then
 fi
 
 php artisan config:clear
-php artisan cache:clear
 
 until mysqladmin ping -h"${DB_HOST:-mysql}" -P"${DB_PORT:-3306}" -u"${DB_USERNAME:-laravel}" -p"${DB_PASSWORD:-secret}" --silent; do
     echo "Waiting for MySQL..."
@@ -28,6 +27,7 @@ until mysqladmin ping -h"${DB_HOST:-mysql}" -P"${DB_PORT:-3306}" -u"${DB_USERNAM
 done
 
 php artisan migrate --force
+php artisan cache:clear
 php artisan db:seed --force
 
 if [ "${1:-start}" = "start" ]; then

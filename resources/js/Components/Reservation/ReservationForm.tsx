@@ -14,6 +14,8 @@ type ReservationFormData = {
   customer_email: string;
   customer_phone: string;
   locale: 'es' | 'en';
+  preferred_area: 'interior' | 'terraza';
+  preferred_language: 'es' | 'gl' | 'en' | 'fr' | 'de';
   comments: string;
 };
 
@@ -21,7 +23,7 @@ export function ReservationForm() {
   const today = new Date().toISOString().slice(0, 10);
   const [slots, setSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
-  const { data, setData, post, processing, errors } = useForm<ReservationFormData>({
+  const { data, setData, transform, processing, errors } = useForm<ReservationFormData>({
     reservation_date: today,
     start_time: '',
     party_size: 2,
@@ -29,6 +31,8 @@ export function ReservationForm() {
     customer_email: '',
     customer_phone: '',
     locale: 'es',
+    preferred_area: 'terraza',
+    preferred_language: 'es',
     comments: '',
   });
 
@@ -55,7 +59,19 @@ export function ReservationForm() {
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    post('/reservar');
+    const comments = [
+      data.comments,
+      `Preferencia de zona: ${data.preferred_area}`,
+      `Idioma preferido: ${data.preferred_language.toUpperCase()}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    transform((formData) => ({
+      ...formData,
+      locale: data.locale,
+      comments,
+    })).post('/reservar');
   }
 
   return (
@@ -104,13 +120,39 @@ export function ReservationForm() {
           {errors.customer_email && <span className="text-red-700">{errors.customer_email}</span>}
         </label>
         <label className="grid gap-2 text-sm font-medium">
-          Idioma
-          <select className="h-11 rounded-md border border-slate-300 bg-white px-3" value={data.locale} onChange={(event) => setData('locale', event.target.value as 'es' | 'en')}>
-            <option value="es">Espanol</option>
-            <option value="en">English</option>
+          Interior o terraza
+          <select
+            className="h-11 rounded-md border border-slate-300 bg-white px-3"
+            value={data.preferred_area}
+            onChange={(event) => setData('preferred_area', event.target.value as 'interior' | 'terraza')}
+          >
+            <option value="terraza">Terraza</option>
+            <option value="interior">Interior</option>
           </select>
         </label>
       </div>
+
+      <label className="grid gap-2 text-sm font-medium">
+        Idioma preferido
+        <select
+          className="h-11 rounded-md border border-slate-300 bg-white px-3"
+          value={data.preferred_language}
+          onChange={(event) => {
+            const value = event.target.value as ReservationFormData['preferred_language'];
+            setData({
+              ...data,
+              preferred_language: value,
+              locale: value === 'en' ? 'en' : 'es',
+            });
+          }}
+        >
+          <option value="es">Espanol</option>
+          <option value="gl">Galego</option>
+          <option value="en">English</option>
+          <option value="fr">Francais</option>
+          <option value="de">Deutsch</option>
+        </select>
+      </label>
 
       <label className="grid gap-2 text-sm font-medium">
         Comentarios o alergias

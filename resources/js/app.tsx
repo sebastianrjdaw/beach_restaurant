@@ -5,13 +5,13 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 
 createInertiaApp({
-  title: (title) => `${title} - Beach Restaurant`,
+  title: (title) => `${title} - Restaurante A Saina`,
   resolve: (name) =>
     resolvePageComponent(`./Pages/${name}.tsx`, import.meta.glob('./Pages/**/*.tsx')),
   setup({ el, App, props }) {
     createRoot(el).render(<App {...props} />);
   },
   progress: {
-    color: '#0f766e',
+    color: '#0E3A47',
   },
 });

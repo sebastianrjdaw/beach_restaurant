@@ -1,16 +1,27 @@
-const images = [
-  'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=900&q=80',
-  'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=900&q=80',
-  'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=900&q=80',
-];
+import { homeContent } from '@/content/homeContent';
+import type { Locale } from '@/types';
 
-export function GallerySection() {
+export function GallerySection({ locale }: { locale: Locale }) {
+  const copy = homeContent[locale].gallery;
+
   return (
-    <section className="bg-slate-950 px-6 py-20">
-      <div className="mx-auto grid max-w-6xl gap-4 md:grid-cols-3">
-        {images.map((src) => (
-          <img key={src} className="h-72 w-full rounded-md object-cover" src={src} alt="" />
-        ))}
+    <section className="bg-[#0E3A47] px-5 py-20 text-white sm:px-6 lg:py-24">
+      <div className="mx-auto max-w-6xl">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#D8C3A5]">{copy.title}</p>
+        <div className="mt-8 grid auto-rows-[16rem] gap-4 md:grid-cols-4">
+          {copy.images.map((image, index) => (
+            <img
+              key={image.alt}
+              className={[
+                'h-full w-full rounded-md object-cover',
+                index === 0 ? 'md:col-span-2 md:row-span-2' : '',
+                index === 3 ? 'md:col-span-2' : '',
+              ].join(' ')}
+              src={image.src}
+              alt={image.alt}
+            />
+          ))}
+        </div>
       </div>
     </section>
   );

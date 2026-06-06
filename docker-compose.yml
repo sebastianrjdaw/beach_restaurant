@@ -10,6 +10,7 @@ services:
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
+      APP_NAME: "Restaurante A Saina"
       APP_URL: http://localhost:8000
       DB_CONNECTION: mysql
       DB_HOST: mysql
@@ -20,7 +21,7 @@ services:
       CACHE_STORE: database
       QUEUE_CONNECTION: database
       SESSION_DRIVER: database
-      VITE_APP_NAME: "Mar Azul Beach"
+      VITE_APP_NAME: "Restaurante A Saina"
       VITE_USE_POLLING: "true"
     ports:
       - "8000:8000"

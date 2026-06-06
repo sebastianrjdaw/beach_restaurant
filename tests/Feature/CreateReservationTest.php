@@ -6,6 +6,7 @@ use App\Models\Area;
 use App\Models\OpeningHour;
 use App\Models\RestaurantSetting;
 use App\Models\RestaurantTable;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -15,6 +16,8 @@ class CreateReservationTest extends TestCase
 
     public function test_public_reservation_can_be_created(): void
     {
+        $this->withoutMiddleware(ValidateCsrfToken::class);
+
         RestaurantSetting::query()->create([
             'name' => 'Test Restaurant',
             'default_reservation_duration' => 90,
@@ -33,7 +36,7 @@ class CreateReservationTest extends TestCase
         RestaurantTable::query()->create(['area_id' => $area->id, 'name' => 'T1', 'capacity' => 4]);
 
         $response = $this->post('/reservar', [
-            'reservation_date' => '2026-06-05',
+            'reservation_date' => '2026-06-12',
             'start_time' => '13:00',
             'party_size' => 2,
             'customer_name' => 'Ada Lovelace',

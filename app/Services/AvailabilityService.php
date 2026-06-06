@@ -18,26 +18,27 @@ class AvailabilityService
     {
         $settings = $this->settings();
         $day = CarbonImmutable::parse($date, $settings->timezone);
-        $window = $this->openingWindow($day);
+        $windows = $this->openingWindows($day);
 
-        if ($window === null) {
+        if ($windows === []) {
             return [];
         }
 
-        [$opensAt, $closesAt] = $window;
         $duration = (int) $settings->default_reservation_duration;
         $interval = (int) $settings->reservation_interval;
         $slots = [];
 
-        for ($slot = $opensAt; $slot->addMinutes($duration)->lessThanOrEqualTo($closesAt); $slot = $slot->addMinutes($interval)) {
-            $endsAt = $slot->addMinutes($duration);
+        foreach ($windows as [$opensAt, $closesAt]) {
+            for ($slot = $opensAt; $slot->addMinutes($duration)->lessThanOrEqualTo($closesAt); $slot = $slot->addMinutes($interval)) {
+                $endsAt = $slot->addMinutes($duration);
 
-            if ($this->hasCapacity($day, $slot, $endsAt, $partySize ?? 1)) {
-                $slots[] = [
-                    'time' => $slot->format('H:i'),
-                    'ends_at' => $endsAt->format('H:i'),
-                    'label' => $slot->format('H:i'),
-                ];
+                if ($this->hasCapacity($day, $slot, $endsAt, $partySize ?? 1)) {
+                    $slots[] = [
+                        'time' => $slot->format('H:i'),
+                        'ends_at' => $endsAt->format('H:i'),
+                        'label' => $slot->format('H:i'),
+                    ];
+                }
             }
         }
 
@@ -85,7 +86,7 @@ class AvailabilityService
     {
         return RestaurantSetting::query()->first()
             ?? new RestaurantSetting([
-                'name' => 'Beach Restaurant',
+                'name' => 'Restaurante A Saina',
                 'default_reservation_duration' => 90,
                 'reservation_interval' => 30,
                 'timezone' => 'Europe/Madrid',
@@ -94,34 +95,37 @@ class AvailabilityService
             ]);
     }
 
-    private function openingWindow(CarbonImmutable $day): ?array
+    private function openingWindows(CarbonImmutable $day): array
     {
         $specialDay = SpecialDay::query()->whereDate('date', $day->toDateString())->first();
 
         if ($specialDay?->is_closed) {
-            return null;
+            return [];
         }
 
         if ($specialDay && $specialDay->opens_at && $specialDay->closes_at) {
-            return [
+            return [[
                 CarbonImmutable::parse($day->toDateString().' '.$specialDay->opens_at),
                 CarbonImmutable::parse($day->toDateString().' '.$specialDay->closes_at),
-            ];
+            ]];
         }
 
-        $openingHour = OpeningHour::query()
+        $openingHours = OpeningHour::query()
             ->where('weekday', $day->dayOfWeekIso)
             ->where('is_closed', false)
-            ->first();
+            ->orderBy('opens_at')
+            ->get();
 
-        if ($openingHour === null) {
-            return null;
+        if ($openingHours->isEmpty()) {
+            return [];
         }
 
-        return [
-            CarbonImmutable::parse($day->toDateString().' '.$openingHour->opens_at),
-            CarbonImmutable::parse($day->toDateString().' '.$openingHour->closes_at),
-        ];
+        return $openingHours
+            ->map(fn (OpeningHour $openingHour) => [
+                CarbonImmutable::parse($day->toDateString().' '.$openingHour->opens_at),
+                CarbonImmutable::parse($day->toDateString().' '.$openingHour->closes_at),
+            ])
+            ->all();
     }
 
     private function hasCapacity(CarbonImmutable $day, CarbonImmutable $start, CarbonImmutable $end, int $partySize): bool

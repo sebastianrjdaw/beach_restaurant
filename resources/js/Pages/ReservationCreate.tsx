@@ -6,18 +6,32 @@ import type { RestaurantSettings } from '@/types';
 export default function ReservationCreate({ settings }: { settings: RestaurantSettings }) {
   return (
     <>
-      <Head title="Reservar" />
-      <main className="min-h-screen bg-stone-50 px-6 py-10">
-        <div className="mx-auto max-w-3xl">
-          <Link className="inline-flex items-center gap-2 text-sm font-semibold text-teal-800" href="/">
+      <Head title="Reservar mesa | Restaurante A Saina" />
+      <main className="min-h-screen bg-[#F7F3EC] px-5 py-10 text-[#1C1C1C] sm:px-6">
+        <div className="mx-auto max-w-4xl">
+          <Link className="inline-flex items-center gap-2 text-sm font-semibold text-[#0E3A47]" href="/">
             <ArrowLeft className="h-4 w-4" />
             Volver
           </Link>
-          <div className="mt-8 rounded-md bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:p-8">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">{settings.name}</p>
-            <h1 className="mt-3 text-3xl font-semibold">Reserva tu mesa</h1>
-            <p className="mt-3 text-slate-600">Elige fecha, hora y dejanos tus datos para confirmar la reserva.</p>
-            <div className="mt-8">
+          <div className="mt-8 grid overflow-hidden rounded-md bg-white shadow-sm ring-1 ring-stone-200 lg:grid-cols-[0.85fr_1.15fr]">
+            <div className="relative min-h-72 bg-[#0E3A47] p-8 text-white">
+              <img
+                className="absolute inset-0 h-full w-full object-cover opacity-45"
+                src="https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=1000&q=80"
+                alt=""
+              />
+              <div className="absolute inset-0 bg-[#0E3A47]/60" />
+              <div className="relative flex h-full flex-col justify-end">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D8C3A5]">
+                  {settings.name || 'Restaurante A Saina'}
+                </p>
+                <h1 className="mt-4 font-serif text-4xl leading-tight">Reserva tu mesa frente al Atlantico</h1>
+                <p className="mt-4 leading-7 text-white/85">
+                  Elige dia, hora, numero de personas y preferencia de sala. Te confirmaremos la reserva cuanto antes.
+                </p>
+              </div>
+            </div>
+            <div className="p-6 sm:p-8">
               <ReservationForm />
             </div>
           </div>
