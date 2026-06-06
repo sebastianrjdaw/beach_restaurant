@@ -26,3 +26,6 @@ Route::get('/reservar', [ReservationController::class, 'create'])->name('reserva
 Route::post('/reservar', [ReservationController::class, 'store'])->name('reservations.store');
 Route::get('/reservas/disponibilidad', [ReservationController::class, 'availability'])->name('reservations.availability');
 Route::get('/reservas/confirmacion/{code}', [ReservationController::class, 'confirmation'])->name('reservations.confirmation');
+Route::get('/reservas/verificar-email/{token}', [ReservationController::class, 'verifyEmail'])->name('reservations.verify-email');
+Route::get('/reservas/{token}/cancelar', [ReservationController::class, 'cancelForm'])->name('reservations.cancel.form');
+Route::post('/reservas/{token}/cancelar', [ReservationController::class, 'cancel'])->name('reservations.cancel');

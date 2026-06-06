@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div class="space-y-6">
+    <div class="space-y-6" wire:poll.10s>
         <div class="rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
             {{ $this->form }}
         </div>
@@ -90,6 +90,91 @@
                                         @if ($reservation->comments)
                                             <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ $reservation->comments }}</p>
                                         @endif
+
+                                        <div class="mt-3 flex flex-wrap gap-2">
+                                            @if (in_array($reservation->status, [\App\Enums\ReservationStatus::Pending, \App\Enums\ReservationStatus::PendingEmailVerification], true))
+                                                <button
+                                                    type="button"
+                                                    wire:click="confirmReservation({{ $reservation->id }})"
+                                                    class="rounded-lg bg-success-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-success-500"
+                                                >
+                                                    Confirmar
+                                                </button>
+                                            @endif
+                                            @if ($reservation->customer_phone)
+                                                <a
+                                                    href="tel:{{ preg_replace('/\s+/', '', $reservation->customer_phone) }}"
+                                                    class="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-500"
+                                                >
+                                                    Llamar
+                                                </a>
+                                            @endif
+                                            @if (in_array($reservation->status, [\App\Enums\ReservationStatus::Pending, \App\Enums\ReservationStatus::PendingEmailVerification, \App\Enums\ReservationStatus::Confirmed], true))
+                                                <button
+                                                    type="button"
+                                                    wire:click="completeReservation({{ $reservation->id }})"
+                                                    class="rounded-lg bg-gray-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-500"
+                                                >
+                                                    Completada
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    wire:click="markNoShow({{ $reservation->id }})"
+                                                    class="rounded-lg bg-danger-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-danger-500"
+                                                >
+                                                    No-show
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    wire:click="cancelReservation({{ $reservation->id }})"
+                                                    wire:confirm="Cancelar esta reserva?"
+                                                    class="rounded-lg border border-danger-300 px-3 py-1.5 text-xs font-semibold text-danger-700 hover:bg-danger-50 dark:border-danger-500/40 dark:text-danger-300 dark:hover:bg-danger-500/10"
+                                                >
+                                                    Cancelar
+                                                </button>
+                                            @endif
+                                        </div>
+
+                                        <div class="mt-4 rounded-lg bg-gray-50 p-3 dark:bg-white/5">
+                                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Mover reserva</p>
+                                            <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                                                <label class="grid gap-1 text-xs font-medium text-gray-700 dark:text-gray-200">
+                                                    Nueva fecha
+                                                    <input
+                                                        type="date"
+                                                        wire:model="moves.{{ $reservation->id }}.date"
+                                                        placeholder="{{ $reservation->reservation_date->format('Y-m-d') }}"
+                                                        class="rounded-lg border-gray-300 text-sm dark:border-white/10 dark:bg-gray-900"
+                                                    />
+                                                </label>
+                                                <label class="grid gap-1 text-xs font-medium text-gray-700 dark:text-gray-200">
+                                                    Nueva hora
+                                                    <input
+                                                        type="time"
+                                                        wire:model="moves.{{ $reservation->id }}.time"
+                                                        placeholder="{{ substr((string) $reservation->start_time, 0, 5) }}"
+                                                        class="rounded-lg border-gray-300 text-sm dark:border-white/10 dark:bg-gray-900"
+                                                    />
+                                                </label>
+                                            </div>
+                                            <div class="mt-3 flex flex-wrap gap-3 text-xs text-gray-700 dark:text-gray-200">
+                                                <label class="inline-flex items-center gap-2">
+                                                    <input type="checkbox" wire:model="moves.{{ $reservation->id }}.notify_email" class="rounded border-gray-300" />
+                                                    Enviar cambio por email
+                                                </label>
+                                                <label class="inline-flex items-center gap-2 opacity-60">
+                                                    <input type="checkbox" wire:model="moves.{{ $reservation->id }}.notify_whatsapp" class="rounded border-gray-300" />
+                                                    WhatsApp futuro
+                                                </label>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                wire:click="moveReservation({{ $reservation->id }})"
+                                                class="mt-3 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-500"
+                                            >
+                                                Guardar cambio
+                                            </button>
+                                        </div>
                                     </div>
                                 @empty
                                     <p class="rounded-lg bg-gray-50 p-3 text-sm text-gray-500 dark:bg-white/5 dark:text-gray-400">

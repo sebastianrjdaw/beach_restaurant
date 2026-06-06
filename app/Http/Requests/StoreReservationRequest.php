@@ -20,6 +20,7 @@ class StoreReservationRequest extends FormRequest
             'reservation_date' => ['required', 'date', 'after_or_equal:today'],
             'start_time' => ['required', 'date_format:H:i'],
             'party_size' => ['required', 'integer', 'min:1', 'max:20'],
+            'preferred_area_id' => ['nullable', 'integer', 'exists:areas,id'],
             'customer_name' => ['required', 'string', 'max:120'],
             'customer_email' => ['nullable', 'email', 'max:255'],
             'customer_phone' => ['nullable', 'string', 'max:40'],
@@ -35,8 +36,11 @@ class StoreReservationRequest extends FormRequest
                 $settings = RestaurantSetting::query()->first();
                 $maxDays = (int) ($settings?->max_days_in_advance ?? 30);
                 $timezone = $settings?->timezone ?? 'Europe/Madrid';
+                $minGuests = (int) ($settings?->min_guests_online ?? 1);
+                $maxGuests = (int) ($settings?->max_guests_online ?? 10);
                 $date = $this->input('reservation_date');
                 $startTime = $this->input('start_time');
+                $partySize = (int) $this->input('party_size', 0);
 
                 if (! $date) {
                     return;
@@ -59,6 +63,13 @@ class StoreReservationRequest extends FormRequest
 
                 if ($startsAt->lessThanOrEqualTo(CarbonImmutable::now($timezone))) {
                     $validator->errors()->add('start_time', 'No se puede reservar una hora ya pasada.');
+                }
+
+                if ($partySize < $minGuests || $partySize > $maxGuests) {
+                    $validator->errors()->add(
+                        'party_size',
+                        "Las reservas online deben ser de {$minGuests} a {$maxGuests} personas.",
+                    );
                 }
             },
         ];

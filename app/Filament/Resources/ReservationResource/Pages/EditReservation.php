@@ -18,7 +18,7 @@ class EditReservation extends EditRecord
                 ->label('Confirmar')
                 ->icon('heroicon-o-check-circle')
                 ->color('success')
-                ->visible(fn (): bool => $this->record->status === ReservationStatus::Pending)
+                ->visible(fn (): bool => in_array($this->record->status, [ReservationStatus::Pending, ReservationStatus::PendingEmailVerification], true))
                 ->action(function (): void {
                     $this->record->update([
                         'status' => ReservationStatus::Confirmed,

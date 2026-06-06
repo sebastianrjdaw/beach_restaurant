@@ -14,7 +14,7 @@ use Illuminate\Support\Collection;
 
 class AvailabilityService
 {
-    public function availableSlots(string $date, ?int $partySize = null): array
+    public function availableSlots(string $date, ?int $partySize = null, ?int $preferredAreaId = null): array
     {
         $settings = $this->settings();
         $day = CarbonImmutable::parse($date, $settings->timezone);
@@ -28,7 +28,7 @@ class AvailabilityService
             for ($slot = $opensAt; $slot->addMinutes($duration)->lessThanOrEqualTo($closesAt); $slot = $slot->addMinutes($interval)) {
                 $endsAt = $slot->addMinutes($duration);
 
-                if ($this->hasCapacity($day, $slot, $endsAt, $partySize ?? 1)) {
+                if ($this->hasCapacity($day, $slot, $endsAt, $partySize ?? 1, $preferredAreaId)) {
                     $slots[] = [
                         'time' => $slot->format('H:i'),
                         'ends_at' => $endsAt->format('H:i'),
@@ -41,7 +41,7 @@ class AvailabilityService
         return $slots;
     }
 
-    public function publicSlots(string $date, ?int $partySize = null): array
+    public function publicSlots(string $date, ?int $partySize = null, ?int $preferredAreaId = null): array
     {
         $settings = $this->settings();
         $day = CarbonImmutable::parse($date, $settings->timezone);
@@ -55,8 +55,8 @@ class AvailabilityService
         foreach ($windows as [$opensAt, $closesAt, $label]) {
             for ($slot = $opensAt; $slot->addMinutes($duration)->lessThanOrEqualTo($closesAt); $slot = $slot->addMinutes($interval)) {
                 $endsAt = $slot->addMinutes($duration);
-                $isPast = $slot->lessThanOrEqualTo($now);
-                $hasCapacity = ! $isPast && $this->hasCapacity($day, $slot, $endsAt, $partySize ?? 1);
+                $isTooSoon = $slot->lessThanOrEqualTo($now->addMinutes((int) $settings->min_minutes_before_reservation));
+                $hasCapacity = ! $isTooSoon && $this->hasCapacity($day, $slot, $endsAt, $partySize ?? 1, $preferredAreaId);
 
                 $slots[] = [
                     'time' => $slot->format('H:i'),
@@ -65,7 +65,7 @@ class AvailabilityService
                     'shift' => $label ?: $this->shiftLabel($slot),
                     'is_available' => $hasCapacity,
                     'disabled_reason' => match (true) {
-                        $isPast => 'Hora ya pasada',
+                        $isTooSoon => 'No cumple el tiempo minimo de antelacion',
                         ! $hasCapacity => 'Sin disponibilidad',
                         default => null,
                     },
@@ -134,6 +134,7 @@ class AvailabilityService
                 $slotReservations = $reservations->get($slot['time'], collect());
                 $activeReservations = $slotReservations->whereIn('status', [
                     ReservationStatus::Pending,
+                    ReservationStatus::PendingEmailVerification,
                     ReservationStatus::Confirmed,
                 ]);
                 $guests = (int) $activeReservations->sum('party_size');
@@ -162,16 +163,26 @@ class AvailabilityService
         return $slots;
     }
 
-    public function firstAvailableTables(string $date, string $startTime, string $endTime, int $partySize): Collection
+    public function firstAvailableTables(
+        string $date,
+        string $startTime,
+        string $endTime,
+        int $partySize,
+        ?int $preferredAreaId = null,
+        bool $strictAreaPreference = false,
+        ?int $ignoreReservationId = null,
+    ): Collection
     {
         $day = CarbonImmutable::parse($date);
         $start = CarbonImmutable::parse($date.' '.$startTime);
         $end = CarbonImmutable::parse($date.' '.$endTime);
-        $busyTableIds = $this->busyTableIds($day, $start, $end);
+        $busyTableIds = $this->busyTableIds($day, $start, $end, $ignoreReservationId);
 
         $tables = RestaurantTable::query()
             ->where('is_active', true)
             ->whereNotIn('id', $busyTableIds)
+            ->when($strictAreaPreference && $preferredAreaId, fn ($query) => $query->where('area_id', $preferredAreaId))
+            ->when($preferredAreaId, fn ($query) => $query->orderByRaw('area_id = ? desc', [$preferredAreaId]))
             ->orderBy('capacity')
             ->get();
 
@@ -248,7 +259,7 @@ class AvailabilityService
             ->all();
     }
 
-    private function hasCapacity(CarbonImmutable $day, CarbonImmutable $start, CarbonImmutable $end, int $partySize): bool
+    private function hasCapacity(CarbonImmutable $day, CarbonImmutable $start, CarbonImmutable $end, int $partySize, ?int $preferredAreaId = null): bool
     {
         if ($this->isManuallyBlocked($day, $start, $end)) {
             return false;
@@ -258,7 +269,16 @@ class AvailabilityService
             return false;
         }
 
-        return $this->firstAvailableTables($day->toDateString(), $start->format('H:i'), $end->format('H:i'), $partySize)
+        $settings = $this->settings();
+
+        return $this->firstAvailableTables(
+            $day->toDateString(),
+            $start->format('H:i'),
+            $end->format('H:i'),
+            $partySize,
+            $preferredAreaId,
+            (bool) $settings->strict_area_preference,
+        )
             ->sum('capacity') >= $partySize;
     }
 
@@ -272,7 +292,11 @@ class AvailabilityService
         $reservations = Reservation::query()
             ->whereDate('reservation_date', $date)
             ->where('start_time', $startTime)
-            ->whereIn('status', [ReservationStatus::Pending->value, ReservationStatus::Confirmed->value])
+            ->whereIn('status', [
+                ReservationStatus::Pending->value,
+                ReservationStatus::PendingEmailVerification->value,
+                ReservationStatus::Confirmed->value,
+            ])
             ->get();
 
         return [
@@ -286,11 +310,16 @@ class AvailabilityService
         return $slot->hour < 18 ? 'Comida' : 'Cena';
     }
 
-    private function busyTableIds(CarbonImmutable $day, CarbonImmutable $start, CarbonImmutable $end): array
+    private function busyTableIds(CarbonImmutable $day, CarbonImmutable $start, CarbonImmutable $end, ?int $ignoreReservationId = null): array
     {
         $reservationTableIds = Reservation::query()
             ->whereDate('reservation_date', $day->toDateString())
-            ->whereIn('status', [ReservationStatus::Pending->value, ReservationStatus::Confirmed->value])
+            ->when($ignoreReservationId, fn ($query) => $query->whereKeyNot($ignoreReservationId))
+            ->whereIn('status', [
+                ReservationStatus::Pending->value,
+                ReservationStatus::PendingEmailVerification->value,
+                ReservationStatus::Confirmed->value,
+            ])
             ->where('start_time', '<', $end->format('H:i:s'))
             ->where('end_time', '>', $start->format('H:i:s'))
             ->with('tables:id')

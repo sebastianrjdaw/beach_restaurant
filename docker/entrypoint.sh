@@ -30,6 +30,7 @@ php artisan migrate --force
 php artisan cache:clear
 php artisan filament:assets
 php artisan db:seed --force
+php artisan db:seed --class=AdminUserSeeder --force
 
 if [ "${1:-start}" = "start" ]; then
     rm -f public/hot

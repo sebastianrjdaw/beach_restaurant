@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Enums\ReservationOrigin;
 use App\Enums\ReservationStatus;
 use App\Filament\Resources\ReservationResource\Pages;
+use App\Models\Area;
 use App\Models\Reservation;
 use App\Services\AvailabilityService;
 use Filament\Forms;
@@ -56,6 +57,15 @@ class ReservationResource extends Resource
                             ->default(2)
                             ->live()
                             ->disabledOn('edit'),
+                        Forms\Components\Select::make('preferred_area_id')
+                            ->label('Zona preferida')
+                            ->options(fn (): array => Area::query()
+                                ->where('is_active', true)
+                                ->orderBy('sort_order')
+                                ->get()
+                                ->mapWithKeys(fn (Area $area): array => [$area->id => $area->name['es'] ?? 'Zona'])
+                                ->all())
+                            ->placeholder('Sin preferencia'),
                         Forms\Components\Select::make('start_time')
                             ->label('Hora')
                             ->required()
@@ -108,7 +118,17 @@ class ReservationResource extends Resource
                 Forms\Components\Section::make('Notas')
                     ->schema([
                         Forms\Components\Textarea::make('comments')
-                            ->label('Comentarios, alergias o preferencias')
+                            ->label('Comentarios originales')
+                            ->rows(3)
+                            ->maxLength(1000)
+                            ->columnSpanFull(),
+                        Forms\Components\Textarea::make('customer_notes')
+                            ->label('Notas del cliente')
+                            ->rows(4)
+                            ->maxLength(1000)
+                            ->columnSpanFull(),
+                        Forms\Components\Textarea::make('internal_notes')
+                            ->label('Notas internas')
                             ->rows(4)
                             ->maxLength(1000)
                             ->columnSpanFull(),
@@ -137,12 +157,17 @@ class ReservationResource extends Resource
                     ->label('Pers.')
                     ->alignCenter()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('preferredArea.name')
+                    ->label('Zona')
+                    ->formatStateUsing(fn ($state): string => is_array($state) ? ($state['es'] ?? 'Zona') : 'Sin preferencia')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('status')
                     ->label('Estado')
                     ->badge()
                     ->formatStateUsing(fn (ReservationStatus $state): string => self::statusOptions()[$state->value] ?? $state->value)
                     ->color(fn (ReservationStatus $state): string => match ($state) {
                         ReservationStatus::Pending => 'warning',
+                        ReservationStatus::PendingEmailVerification => 'info',
                         ReservationStatus::Confirmed => 'success',
                         ReservationStatus::Cancelled => 'danger',
                         ReservationStatus::Completed => 'gray',
@@ -183,7 +208,7 @@ class ReservationResource extends Resource
                     ->label('Confirmar')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn (Reservation $record): bool => $record->status === ReservationStatus::Pending)
+                    ->visible(fn (Reservation $record): bool => in_array($record->status, [ReservationStatus::Pending, ReservationStatus::PendingEmailVerification], true))
                     ->action(fn (Reservation $record) => $record->update([
                         'status' => ReservationStatus::Confirmed,
                         'confirmed_at' => now(),
@@ -192,7 +217,7 @@ class ReservationResource extends Resource
                     ->label('Completada')
                     ->icon('heroicon-o-flag')
                     ->color('gray')
-                    ->visible(fn (Reservation $record): bool => in_array($record->status, [ReservationStatus::Pending, ReservationStatus::Confirmed], true))
+                    ->visible(fn (Reservation $record): bool => in_array($record->status, [ReservationStatus::Pending, ReservationStatus::PendingEmailVerification, ReservationStatus::Confirmed], true))
                     ->action(fn (Reservation $record) => $record->update([
                         'status' => ReservationStatus::Completed,
                     ])),
@@ -200,7 +225,7 @@ class ReservationResource extends Resource
                     ->label('No show')
                     ->icon('heroicon-o-user-minus')
                     ->color('danger')
-                    ->visible(fn (Reservation $record): bool => in_array($record->status, [ReservationStatus::Pending, ReservationStatus::Confirmed], true))
+                    ->visible(fn (Reservation $record): bool => in_array($record->status, [ReservationStatus::Pending, ReservationStatus::PendingEmailVerification, ReservationStatus::Confirmed], true))
                     ->requiresConfirmation()
                     ->action(fn (Reservation $record) => $record->update([
                         'status' => ReservationStatus::NoShow,
@@ -209,7 +234,7 @@ class ReservationResource extends Resource
                     ->label('Cancelar')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn (Reservation $record): bool => in_array($record->status, [ReservationStatus::Pending, ReservationStatus::Confirmed], true))
+                    ->visible(fn (Reservation $record): bool => in_array($record->status, [ReservationStatus::Pending, ReservationStatus::PendingEmailVerification, ReservationStatus::Confirmed], true))
                     ->requiresConfirmation()
                     ->action(fn (Reservation $record) => $record->update([
                         'status' => ReservationStatus::Cancelled,
@@ -278,6 +303,7 @@ class ReservationResource extends Resource
     {
         return [
             ReservationStatus::Pending->value => 'Pendiente',
+            ReservationStatus::PendingEmailVerification->value => 'Pendiente email',
             ReservationStatus::Confirmed->value => 'Confirmada',
             ReservationStatus::Cancelled->value => 'Cancelada',
             ReservationStatus::Completed->value => 'Completada',
