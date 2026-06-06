@@ -20,10 +20,6 @@ class AvailabilityService
         $day = CarbonImmutable::parse($date, $settings->timezone);
         $windows = $this->openingWindows($day);
 
-        if ($windows === []) {
-            return [];
-        }
-
         $duration = (int) $settings->default_reservation_duration;
         $interval = (int) $settings->reservation_interval;
         $slots = [];
@@ -41,6 +37,127 @@ class AvailabilityService
                 }
             }
         }
+
+        return $slots;
+    }
+
+    public function publicSlots(string $date, ?int $partySize = null): array
+    {
+        $settings = $this->settings();
+        $day = CarbonImmutable::parse($date, $settings->timezone);
+        $now = CarbonImmutable::now($settings->timezone);
+        $windows = $this->openingWindows($day);
+
+        $duration = (int) $settings->default_reservation_duration;
+        $interval = (int) $settings->reservation_interval;
+        $slots = [];
+
+        foreach ($windows as [$opensAt, $closesAt, $label]) {
+            for ($slot = $opensAt; $slot->addMinutes($duration)->lessThanOrEqualTo($closesAt); $slot = $slot->addMinutes($interval)) {
+                $endsAt = $slot->addMinutes($duration);
+                $isPast = $slot->lessThanOrEqualTo($now);
+                $hasCapacity = ! $isPast && $this->hasCapacity($day, $slot, $endsAt, $partySize ?? 1);
+
+                $slots[] = [
+                    'time' => $slot->format('H:i'),
+                    'ends_at' => $endsAt->format('H:i'),
+                    'label' => $slot->format('H:i'),
+                    'shift' => $label ?: $this->shiftLabel($slot),
+                    'is_available' => $hasCapacity,
+                    'disabled_reason' => match (true) {
+                        $isPast => 'Hora ya pasada',
+                        ! $hasCapacity => 'Sin disponibilidad',
+                        default => null,
+                    },
+                ];
+            }
+        }
+
+        return $slots;
+    }
+
+    public function bookableSlots(string $date): array
+    {
+        $settings = $this->settings();
+        $day = CarbonImmutable::parse($date, $settings->timezone);
+        $duration = (int) $settings->default_reservation_duration;
+        $interval = (int) $settings->reservation_interval;
+        $slots = [];
+
+        foreach ($this->openingWindows($day) as $window) {
+            [$opensAt, $closesAt, $label] = $window;
+
+            for ($slot = $opensAt; $slot->addMinutes($duration)->lessThanOrEqualTo($closesAt); $slot = $slot->addMinutes($interval)) {
+                $endsAt = $slot->addMinutes($duration);
+
+                $slots[] = [
+                    'time' => $slot->format('H:i'),
+                    'ends_at' => $endsAt->format('H:i'),
+                    'label' => $slot->format('H:i'),
+                    'shift' => $label ?: $this->shiftLabel($slot),
+                ];
+            }
+        }
+
+        return $slots;
+    }
+
+    public function operationalLimitWarnings(string $date, string $startTime, int $partySize): array
+    {
+        $settings = $this->settings();
+        $summary = $this->slotReservationSummary($date, $startTime);
+        $warnings = [];
+
+        if ($settings->max_reservations_per_slot && $summary['reservations'] >= $settings->max_reservations_per_slot) {
+            $warnings[] = 'Se supera el maximo de reservas previsto para este turno.';
+        }
+
+        if ($settings->max_guests_per_slot && ($summary['guests'] + $partySize) > $settings->max_guests_per_slot) {
+            $warnings[] = 'Se supera el maximo de comensales previsto para este turno.';
+        }
+
+        return $warnings;
+    }
+
+    public function dailyPlan(string $date): array
+    {
+        $settings = $this->settings();
+        $reservations = Reservation::query()
+            ->whereDate('reservation_date', $date)
+            ->with('tables.area')
+            ->orderBy('start_time')
+            ->get()
+            ->groupBy(fn (Reservation $reservation): string => substr((string) $reservation->start_time, 0, 5));
+
+        $slots = collect($this->bookableSlots($date))
+            ->map(function (array $slot) use ($reservations, $settings): array {
+                $slotReservations = $reservations->get($slot['time'], collect());
+                $activeReservations = $slotReservations->whereIn('status', [
+                    ReservationStatus::Pending,
+                    ReservationStatus::Confirmed,
+                ]);
+                $guests = (int) $activeReservations->sum('party_size');
+                $tables = $activeReservations
+                    ->flatMap(fn (Reservation $reservation) => $reservation->tables)
+                    ->unique('id');
+
+                return [
+                    ...$slot,
+                    'reservations_count' => $activeReservations->count(),
+                    'guests_count' => $guests,
+                    'tables_count' => $tables->count(),
+                    'tables_capacity' => (int) $tables->sum('capacity'),
+                    'max_reservations' => $settings->max_reservations_per_slot,
+                    'max_guests' => $settings->max_guests_per_slot,
+                    'is_over_reservations_limit' => $settings->max_reservations_per_slot
+                        && $activeReservations->count() > $settings->max_reservations_per_slot,
+                    'is_over_guests_limit' => $settings->max_guests_per_slot
+                        && $guests > $settings->max_guests_per_slot,
+                    'reservations' => $slotReservations->values(),
+                ];
+            })
+            ->groupBy('shift')
+            ->all();
 
         return $slots;
     }
@@ -89,13 +206,14 @@ class AvailabilityService
                 'name' => 'Restaurante A Saina',
                 'default_reservation_duration' => 90,
                 'reservation_interval' => 30,
+                'max_days_in_advance' => 30,
                 'timezone' => 'Europe/Madrid',
                 'default_locale' => 'es',
                 'locales' => ['es', 'en'],
             ]);
     }
 
-    private function openingWindows(CarbonImmutable $day): array
+    public function openingWindows(CarbonImmutable $day): array
     {
         $specialDay = SpecialDay::query()->whereDate('date', $day->toDateString())->first();
 
@@ -107,6 +225,7 @@ class AvailabilityService
             return [[
                 CarbonImmutable::parse($day->toDateString().' '.$specialDay->opens_at),
                 CarbonImmutable::parse($day->toDateString().' '.$specialDay->closes_at),
+                'Especial',
             ]];
         }
 
@@ -124,6 +243,7 @@ class AvailabilityService
             ->map(fn (OpeningHour $openingHour) => [
                 CarbonImmutable::parse($day->toDateString().' '.$openingHour->opens_at),
                 CarbonImmutable::parse($day->toDateString().' '.$openingHour->closes_at),
+                $openingHour->label,
             ])
             ->all();
     }
@@ -134,8 +254,36 @@ class AvailabilityService
             return false;
         }
 
+        if ($this->exceedsOperationalLimits($day->toDateString(), $start->format('H:i'), $partySize)) {
+            return false;
+        }
+
         return $this->firstAvailableTables($day->toDateString(), $start->format('H:i'), $end->format('H:i'), $partySize)
             ->sum('capacity') >= $partySize;
+    }
+
+    private function exceedsOperationalLimits(string $date, string $startTime, int $partySize): bool
+    {
+        return $this->operationalLimitWarnings($date, $startTime, $partySize) !== [];
+    }
+
+    private function slotReservationSummary(string $date, string $startTime): array
+    {
+        $reservations = Reservation::query()
+            ->whereDate('reservation_date', $date)
+            ->where('start_time', $startTime)
+            ->whereIn('status', [ReservationStatus::Pending->value, ReservationStatus::Confirmed->value])
+            ->get();
+
+        return [
+            'reservations' => $reservations->count(),
+            'guests' => (int) $reservations->sum('party_size'),
+        ];
+    }
+
+    private function shiftLabel(CarbonImmutable $slot): string
+    {
+        return $slot->hour < 18 ? 'Comida' : 'Cena';
     }
 
     private function busyTableIds(CarbonImmutable $day, CarbonImmutable $start, CarbonImmutable $end): array

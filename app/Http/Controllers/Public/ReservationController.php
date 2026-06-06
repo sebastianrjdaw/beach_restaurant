@@ -18,7 +18,11 @@ class ReservationController extends Controller
 {
     public function create(AvailabilityService $availability): Response
     {
+        $locale = request('lang', app()->getLocale());
+        $locale = in_array($locale, ['es', 'en'], true) ? $locale : 'es';
+
         return Inertia::render('ReservationCreate', [
+            'locale' => $locale,
             'settings' => $availability->settings(),
         ]);
     }
@@ -31,7 +35,7 @@ class ReservationController extends Controller
         ]);
 
         return response()->json([
-            'slots' => $availability->availableSlots($validated['date'], $validated['party_size'] ?? null),
+            'slots' => $availability->publicSlots($validated['date'], $validated['party_size'] ?? null),
         ]);
     }
 

@@ -1,15 +1,15 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
 import { ReservationForm } from '@/Components/Reservation/ReservationForm';
-import type { RestaurantSettings } from '@/types';
+import type { Locale, RestaurantSettings } from '@/types';
 
-export default function ReservationCreate({ settings }: { settings: RestaurantSettings }) {
+export default function ReservationCreate({ locale = 'es', settings }: { locale: Locale; settings: RestaurantSettings }) {
   return (
     <>
       <Head title="Reservar mesa | Restaurante A Saina" />
       <main className="min-h-screen bg-[#F7F3EC] px-5 py-10 text-[#1C1C1C] sm:px-6">
         <div className="mx-auto max-w-4xl">
-          <Link className="inline-flex items-center gap-2 text-sm font-semibold text-[#0E3A47]" href="/">
+          <Link className="inline-flex items-center gap-2 text-sm font-semibold text-[#0E3A47]" href={`/?lang=${locale}`}>
             <ArrowLeft className="h-4 w-4" />
             Volver
           </Link>
@@ -32,7 +32,7 @@ export default function ReservationCreate({ settings }: { settings: RestaurantSe
               </div>
             </div>
             <div className="p-6 sm:p-8">
-              <ReservationForm />
+              <ReservationForm locale={locale} maxDaysInAdvance={settings.max_days_in_advance ?? 30} />
             </div>
           </div>
         </div>

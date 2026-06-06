@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { CalendarCheck, Fish, MapPin, Phone, Shell, UtensilsCrossed, Waves } from 'lucide-react';
+import { CalendarCheck, Fish, Phone, Settings, Shell, UtensilsCrossed, Waves } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/Components/ui/button';
 import { GallerySection } from '@/Components/Home/GallerySection';
@@ -148,6 +148,7 @@ function ExperienceSection({ locale }: { locale: Locale }) {
 
 function ReservationPreviewSection({ locale }: { locale: Locale }) {
   const copy = homeContent[locale].reservation;
+  const reservationHref = `/reservar?lang=${locale}`;
 
   return (
     <section id="reservas" className="bg-[#F7F3EC] px-5 py-20 sm:px-6 lg:py-24">
@@ -158,7 +159,7 @@ function ReservationPreviewSection({ locale }: { locale: Locale }) {
           <p className="mt-5 text-lg leading-8 text-stone-700">{copy.body}</p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button asChild className="bg-[#0E3A47] hover:bg-[#355E53]">
-              <Link href="/reservar">
+              <Link href={reservationHref}>
                 <CalendarCheck className="h-5 w-5" />
                 {homeContent[locale].hero.reserve}
               </Link>
@@ -195,14 +196,6 @@ function ReservationPreviewSection({ locale }: { locale: Locale }) {
               </div>
             </div>
           </div>
-          <div className="mt-6 grid gap-2 border-t border-stone-200 pt-5">
-            {copy.languages.map(([code, text]) => (
-              <p key={code} className="grid grid-cols-[2.5rem_1fr] gap-3 text-sm leading-6 text-stone-700">
-                <span className="font-semibold text-[#355E53]">{code}</span>
-                <span>{text}</span>
-              </p>
-            ))}
-          </div>
         </div>
       </div>
     </section>
@@ -215,8 +208,9 @@ export default function Home({
   locale: Locale;
   settings: RestaurantSettings;
   menus: Menu[];
-}) {
+  }) {
   const copy = homeContent[locale] ?? homeContent.es;
+  const reservationHref = `/reservar?lang=${locale}`;
 
   return (
     <>
@@ -252,8 +246,16 @@ export default function Home({
             </nav>
             <div className="flex items-center gap-3">
               <LanguageSelector locale={locale} />
+              <a
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:border-[#D8C3A5] hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D8C3A5]"
+                href="/admin"
+                title="Panel admin"
+                aria-label="Panel admin"
+              >
+                <Settings className="h-4 w-4" />
+              </a>
               <Button asChild className="bg-[#D8C3A5] text-[#0E3A47] hover:bg-[#F7F3EC]">
-                <Link href="/reservar">
+                <Link href={reservationHref}>
                   <CalendarCheck className="h-4 w-4" />
                   {copy.nav.reserve}
                 </Link>
@@ -267,7 +269,7 @@ export default function Home({
             <p className="mt-4 max-w-xl text-base leading-7 text-white/80">{copy.hero.short}</p>
             <div className="mt-9 flex flex-wrap gap-3">
               <Button asChild className="bg-[#D8C3A5] text-[#0E3A47] hover:bg-[#F7F3EC]">
-                <Link href="/reservar">
+                <Link href={reservationHref}>
                   <CalendarCheck className="h-5 w-5" />
                   {copy.hero.reserve}
                 </Link>

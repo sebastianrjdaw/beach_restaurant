@@ -11,12 +11,18 @@ export type RestaurantSettings = {
   address?: string | null;
   city?: string | null;
   country?: string | null;
+  max_days_in_advance?: number | null;
+  max_reservations_per_slot?: number | null;
+  max_guests_per_slot?: number | null;
 };
 
 export type TimeSlot = {
   time: string;
   ends_at: string;
   label: string;
+  shift?: string;
+  is_available?: boolean;
+  disabled_reason?: string | null;
 };
 
 export type MenuItem = {

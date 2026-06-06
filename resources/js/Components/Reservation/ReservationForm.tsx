@@ -1,10 +1,9 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useForm } from '@inertiajs/react';
-import { Loader2 } from 'lucide-react';
 import { Button } from '@/Components/ui/button';
 import { DatePicker } from '@/Components/Reservation/DatePicker';
 import { TimeSlotPicker } from '@/Components/Reservation/TimeSlotPicker';
-import type { TimeSlot } from '@/types';
+import type { Locale, TimeSlot } from '@/types';
 
 type ReservationFormData = {
   reservation_date: string;
@@ -15,24 +14,38 @@ type ReservationFormData = {
   customer_phone: string;
   locale: 'es' | 'en';
   preferred_area: 'interior' | 'terraza';
-  preferred_language: 'es' | 'gl' | 'en' | 'fr' | 'de';
   comments: string;
 };
 
-export function ReservationForm() {
-  const today = new Date().toISOString().slice(0, 10);
+function formatDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+export function ReservationForm({
+  locale = 'es',
+  maxDaysInAdvance = 30,
+}: {
+  locale?: Locale;
+  maxDaysInAdvance?: number;
+}) {
+  const today = formatDateInputValue(new Date());
+  const maxDate = new Date();
+  maxDate.setDate(maxDate.getDate() + maxDaysInAdvance);
   const [slots, setSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
-  const { data, setData, transform, processing, errors } = useForm<ReservationFormData>({
+  const { data, setData, transform, post, processing, errors } = useForm<ReservationFormData>({
     reservation_date: today,
     start_time: '',
     party_size: 2,
     customer_name: '',
     customer_email: '',
     customer_phone: '',
-    locale: 'es',
+    locale,
     preferred_area: 'terraza',
-    preferred_language: 'es',
     comments: '',
   });
 
@@ -48,11 +61,20 @@ export function ReservationForm() {
       .then((response) => response.json())
       .then((payload: { slots: TimeSlot[] }) => {
         setSlots(payload.slots);
-        if (!payload.slots.some((slot) => slot.time === data.start_time)) {
+        if (!payload.slots.some((slot) => slot.time === data.start_time && (slot.is_available ?? true))) {
           setData('start_time', '');
         }
       })
-      .finally(() => setLoadingSlots(false));
+      .catch((error) => {
+        if (error.name !== 'AbortError') {
+          setSlots([]);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoadingSlots(false);
+        }
+      });
 
     return () => controller.abort();
   }, [data.reservation_date, data.party_size]);
@@ -62,22 +84,26 @@ export function ReservationForm() {
     const comments = [
       data.comments,
       `Preferencia de zona: ${data.preferred_area}`,
-      `Idioma preferido: ${data.preferred_language.toUpperCase()}`,
     ]
       .filter(Boolean)
       .join('\n');
 
     transform((formData) => ({
       ...formData,
-      locale: data.locale,
+      locale,
       comments,
-    })).post('/reservar');
+    }));
+    post('/reservar');
   }
 
   return (
     <form className="grid gap-6" onSubmit={submit}>
       <div className="grid gap-4 sm:grid-cols-2">
-        <DatePicker value={data.reservation_date} onChange={(value) => setData('reservation_date', value)} />
+        <DatePicker
+          max={formatDateInputValue(maxDate)}
+          value={data.reservation_date}
+          onChange={(value) => setData('reservation_date', value)}
+        />
         <label className="grid gap-2 text-sm font-medium">
           Comensales
           <input
@@ -91,14 +117,12 @@ export function ReservationForm() {
         </label>
       </div>
 
-      {loadingSlots ? (
-        <p className="flex items-center gap-2 text-sm text-slate-600">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Buscando disponibilidad
-        </p>
-      ) : (
-        <TimeSlotPicker slots={slots} value={data.start_time} onChange={(value) => setData('start_time', value)} />
-      )}
+      <TimeSlotPicker
+        loading={loadingSlots}
+        slots={slots}
+        value={data.start_time}
+        onChange={(value) => setData('start_time', value)}
+      />
       {errors.start_time && <p className="text-sm text-red-700">{errors.start_time}</p>}
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -131,28 +155,6 @@ export function ReservationForm() {
           </select>
         </label>
       </div>
-
-      <label className="grid gap-2 text-sm font-medium">
-        Idioma preferido
-        <select
-          className="h-11 rounded-md border border-slate-300 bg-white px-3"
-          value={data.preferred_language}
-          onChange={(event) => {
-            const value = event.target.value as ReservationFormData['preferred_language'];
-            setData({
-              ...data,
-              preferred_language: value,
-              locale: value === 'en' ? 'en' : 'es',
-            });
-          }}
-        >
-          <option value="es">Espanol</option>
-          <option value="gl">Galego</option>
-          <option value="en">English</option>
-          <option value="fr">Francais</option>
-          <option value="de">Deutsch</option>
-        </select>
-      </label>
 
       <label className="grid gap-2 text-sm font-medium">
         Comentarios o alergias

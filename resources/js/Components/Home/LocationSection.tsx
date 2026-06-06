@@ -9,6 +9,7 @@ export function LocationSection({ locale, settings }: { locale: Locale; settings
   const address = [settings.address, settings.city, settings.country].filter(Boolean).join(', ');
   const directionsUrl = 'https://maps.app.goo.gl/i9jVdorLVL46kdwP8';
   const phone = settings.phone ?? '';
+  const reservationHref = `/reservar?lang=${locale}`;
 
   return (
     <section id="ubicacion" className="bg-[#F7F3EC] px-5 py-20 text-[#1C1C1C] sm:px-6 lg:py-24">
@@ -48,7 +49,7 @@ export function LocationSection({ locale, settings }: { locale: Locale; settings
               {copy.call}
             </a>
             <Button asChild className="bg-[#355E53] hover:bg-[#0E3A47]">
-              <Link href="/reservar">
+              <Link href={reservationHref}>
                 <CalendarCheck className="h-4 w-4" />
                 {copy.reserve}
               </Link>

@@ -9,6 +9,8 @@ use Inertia\Inertia;
 
 Route::get('/', function (AvailabilityService $availability) {
     $locale = request('lang', App::getLocale());
+    $locale = in_array($locale, ['es', 'en'], true) ? $locale : 'es';
+    App::setLocale($locale);
 
     return Inertia::render('Home', [
         'locale' => $locale,

@@ -19,6 +19,8 @@ class RestaurantSetting extends Model
         'default_reservation_duration',
         'reservation_interval',
         'max_days_in_advance',
+        'max_reservations_per_slot',
+        'max_guests_per_slot',
         'timezone',
         'default_locale',
         'locales',
@@ -31,6 +33,8 @@ class RestaurantSetting extends Model
             'locales' => 'array',
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
+            'max_reservations_per_slot' => 'integer',
+            'max_guests_per_slot' => 'integer',
         ];
     }
 }

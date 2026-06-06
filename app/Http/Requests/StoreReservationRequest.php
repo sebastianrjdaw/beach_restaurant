@@ -2,7 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Models\RestaurantSetting;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class StoreReservationRequest extends FormRequest
 {
@@ -22,6 +25,42 @@ class StoreReservationRequest extends FormRequest
             'customer_phone' => ['nullable', 'string', 'max:40'],
             'locale' => ['required', 'in:es,en'],
             'comments' => ['nullable', 'string', 'max:1000'],
+        ];
+    }
+
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $settings = RestaurantSetting::query()->first();
+                $maxDays = (int) ($settings?->max_days_in_advance ?? 30);
+                $timezone = $settings?->timezone ?? 'Europe/Madrid';
+                $date = $this->input('reservation_date');
+                $startTime = $this->input('start_time');
+
+                if (! $date) {
+                    return;
+                }
+
+                $maxDate = CarbonImmutable::today($timezone)->addDays($maxDays);
+
+                if (CarbonImmutable::parse($date, $timezone)->greaterThan($maxDate)) {
+                    $validator->errors()->add(
+                        'reservation_date',
+                        "Solo se aceptan reservas con {$maxDays} dias de antelacion.",
+                    );
+                }
+
+                if (! $startTime) {
+                    return;
+                }
+
+                $startsAt = CarbonImmutable::parse($date.' '.$startTime, $timezone);
+
+                if ($startsAt->lessThanOrEqualTo(CarbonImmutable::now($timezone))) {
+                    $validator->errors()->add('start_time', 'No se puede reservar una hora ya pasada.');
+                }
+            },
         ];
     }
 }

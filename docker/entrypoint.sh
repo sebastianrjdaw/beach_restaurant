@@ -28,6 +28,7 @@ done
 
 php artisan migrate --force
 php artisan cache:clear
+php artisan filament:assets
 php artisan db:seed --force
 
 if [ "${1:-start}" = "start" ]; then

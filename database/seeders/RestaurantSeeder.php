@@ -31,6 +31,8 @@ class RestaurantSeeder extends Seeder
                 'default_reservation_duration' => 90,
                 'reservation_interval' => 30,
                 'max_days_in_advance' => 30,
+                'max_reservations_per_slot' => 6,
+                'max_guests_per_slot' => 24,
                 'timezone' => 'Europe/Madrid',
                 'default_locale' => 'es',
                 'locales' => ['es', 'en'],
