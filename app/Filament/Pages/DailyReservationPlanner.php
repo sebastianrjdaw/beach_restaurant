@@ -31,14 +31,17 @@ class DailyReservationPlanner extends Page implements HasForms
 
     protected static string $view = 'filament.pages.daily-reservation-planner';
 
-    public ?array $data = [];
-
     public array $moves = [];
+
+    public ?int $editingReservationId = null;
+
+    public ?string $planningDate = null;
 
     public function mount(): void
     {
+        $this->planningDate = today()->toDateString();
         $this->form->fill([
-            'date' => today()->toDateString(),
+            'planningDate' => $this->planningDate,
         ]);
     }
 
@@ -46,19 +49,23 @@ class DailyReservationPlanner extends Page implements HasForms
     {
         return $form
             ->schema([
-                Forms\Components\DatePicker::make('date')
+                Forms\Components\DatePicker::make('planningDate')
                     ->label('Dia')
                     ->native(false)
+                    ->format('Y-m-d')
+                    ->displayFormat('d/m/Y')
                     ->minDate(today()->toDateString())
                     ->maxDate(today()->addDays((int) $this->settings()->max_days_in_advance)->toDateString())
                     ->required()
-                    ->live(),
+                    ->live()
+                    ->afterStateUpdated(function (?string $state): void {
+                        $this->planningDate = $this->normalizeDate($state);
+                    }),
             ])
             ->columns([
                 'default' => 1,
                 'md' => 3,
-            ])
-            ->statePath('data');
+            ]);
     }
 
     public function getPlanProperty(): array
@@ -82,6 +89,34 @@ class DailyReservationPlanner extends Page implements HasForms
         return ReservationResource::getUrl('create');
     }
 
+    public function openReservationModal(int $reservationId): void
+    {
+        $reservation = Reservation::query()->findOrFail($reservationId);
+        $this->editingReservationId = $reservation->id;
+        $this->moves[$reservation->id] = [
+            'date' => $reservation->reservation_date->format('Y-m-d'),
+            'time' => substr((string) $reservation->start_time, 0, 5),
+            'notify_email' => false,
+            'notify_whatsapp' => false,
+        ];
+    }
+
+    public function closeReservationModal(): void
+    {
+        $this->editingReservationId = null;
+    }
+
+    public function getEditingReservationProperty(): ?Reservation
+    {
+        if ($this->editingReservationId === null) {
+            return null;
+        }
+
+        return Reservation::query()
+            ->with('tables.area')
+            ->find($this->editingReservationId);
+    }
+
     public function confirmReservation(int $reservationId): void
     {
         $reservation = Reservation::query()->findOrFail($reservationId);
@@ -95,6 +130,9 @@ class DailyReservationPlanner extends Page implements HasForms
                 ->notify(new ReservationCustomerNotification($reservation->refresh(), 'confirmed', route('reservations.cancel.form', $reservation->public_token)));
         }
 
+        $this->closeReservationModal();
+        $this->refreshPlanner();
+
         FilamentNotification::make()->title('Reserva confirmada')->success()->send();
     }
 
@@ -105,6 +143,9 @@ class DailyReservationPlanner extends Page implements HasForms
             'cancelled_at' => now(),
         ]);
 
+        $this->closeReservationModal();
+        $this->refreshPlanner();
+
         FilamentNotification::make()->title('Reserva cancelada')->success()->send();
     }
 
@@ -114,6 +155,9 @@ class DailyReservationPlanner extends Page implements HasForms
             'status' => ReservationStatus::Completed,
         ]);
 
+        $this->closeReservationModal();
+        $this->refreshPlanner();
+
         FilamentNotification::make()->title('Reserva completada')->success()->send();
     }
 
@@ -122,6 +166,9 @@ class DailyReservationPlanner extends Page implements HasForms
         Reservation::query()->findOrFail($reservationId)->update([
             'status' => ReservationStatus::NoShow,
         ]);
+
+        $this->closeReservationModal();
+        $this->refreshPlanner();
 
         FilamentNotification::make()->title('Reserva marcada como no-show')->warning()->send();
     }
@@ -180,16 +227,31 @@ class DailyReservationPlanner extends Page implements HasForms
 
         unset($this->moves[$reservationId]);
 
+        $this->closeReservationModal();
+        $this->refreshPlanner();
+
         FilamentNotification::make()->title('Reserva movida')->success()->send();
+    }
+
+    public function refreshPlanner(): void
+    {
+        $this->planningDate = $this->normalizeDate($this->planningDate);
+
+        // Livewire rerenders computed planning data after this action.
     }
 
     private function selectedDate(): string
     {
-        return $this->data['date'] ?? today()->toDateString();
+        return $this->normalizeDate($this->planningDate);
     }
 
     private function settings(): RestaurantSetting
     {
         return RestaurantSetting::query()->firstOrFail();
+    }
+
+    private function normalizeDate(?string $date): string
+    {
+        return CarbonImmutable::parse($date ?: today()->toDateString(), $this->settings()->timezone)->toDateString();
     }
 }

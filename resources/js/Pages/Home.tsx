@@ -222,8 +222,8 @@ export default function Home({
         <section className="relative min-h-[92vh] overflow-hidden bg-[#0E3A47] text-white">
           <img
             className="absolute inset-0 h-full w-full object-cover"
-            src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=2200&q=85"
-            alt=""
+            src="/storage/img/playa_valdovi%C3%B1o.jpeg"
+            alt="Playa da Frouxeira en Valdovino"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-[#0E3A47]/80 via-[#0E3A47]/35 to-[#0E3A47]/90" />
           <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between gap-5 px-5 py-5 sm:px-6">

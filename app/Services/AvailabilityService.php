@@ -122,6 +122,8 @@ class AvailabilityService
     public function dailyPlan(string $date): array
     {
         $settings = $this->settings();
+        $date = CarbonImmutable::parse($date, $settings->timezone)->toDateString();
+
         $reservations = Reservation::query()
             ->whereDate('reservation_date', $date)
             ->with('tables.area')
