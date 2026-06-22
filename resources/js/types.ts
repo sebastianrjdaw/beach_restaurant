@@ -16,6 +16,11 @@ export type RestaurantSettings = {
   max_guests_per_slot?: number | null;
 };
 
+export type Area = {
+  id: number;
+  name: Translated;
+};
+
 export type TimeSlot = {
   time: string;
   ends_at: string;

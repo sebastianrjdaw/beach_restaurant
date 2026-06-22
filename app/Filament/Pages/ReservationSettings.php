@@ -36,6 +36,16 @@ class ReservationSettings extends Page implements HasForms
             'max_days_in_advance' => $settings->max_days_in_advance,
             'max_reservations_per_slot' => $settings->max_reservations_per_slot,
             'max_guests_per_slot' => $settings->max_guests_per_slot,
+            'web_reservation_confirmation_mode' => $settings->web_reservation_confirmation_mode,
+            'email_verification_expiration_minutes' => $settings->email_verification_expiration_minutes,
+            'allow_public_cancellations' => $settings->allow_public_cancellations,
+            'min_hours_before_public_cancellation' => $settings->min_hours_before_public_cancellation,
+            'strict_area_preference' => $settings->strict_area_preference,
+            'min_guests_online' => $settings->min_guests_online,
+            'max_guests_online' => $settings->max_guests_online,
+            'large_party_requires_manual_confirmation' => $settings->large_party_requires_manual_confirmation,
+            'large_party_threshold' => $settings->large_party_threshold,
+            'min_minutes_before_reservation' => $settings->min_minutes_before_reservation,
         ]);
     }
 
@@ -88,6 +98,73 @@ class ReservationSettings extends Page implements HasForms
                             ->numeric()
                             ->minValue(1)
                             ->maxValue(500),
+                    ]),
+                Forms\Components\Section::make('Confirmacion y reglas online')
+                    ->columns([
+                        'default' => 1,
+                        'md' => 3,
+                    ])
+                    ->schema([
+                        Forms\Components\Select::make('web_reservation_confirmation_mode')
+                            ->label('Modo confirmacion web')
+                            ->required()
+                            ->options([
+                                'manual' => 'Manual',
+                                'auto' => 'Automatica',
+                                'auto_with_email_verification' => 'Automatica con verificacion email',
+                            ]),
+                        Forms\Components\TextInput::make('email_verification_expiration_minutes')
+                            ->label('Caducidad verificacion')
+                            ->suffix('min')
+                            ->required()
+                            ->numeric()
+                            ->minValue(5)
+                            ->maxValue(1440),
+                        Forms\Components\TextInput::make('min_minutes_before_reservation')
+                            ->label('Antelacion minima')
+                            ->suffix('min')
+                            ->required()
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(1440),
+                        Forms\Components\TextInput::make('min_guests_online')
+                            ->label('Min. comensales online')
+                            ->required()
+                            ->numeric()
+                            ->minValue(1)
+                            ->maxValue(50),
+                        Forms\Components\TextInput::make('max_guests_online')
+                            ->label('Max. comensales online')
+                            ->required()
+                            ->numeric()
+                            ->minValue(1)
+                            ->maxValue(100),
+                        Forms\Components\TextInput::make('large_party_threshold')
+                            ->label('Grupo grande desde')
+                            ->required()
+                            ->numeric()
+                            ->minValue(1)
+                            ->maxValue(100),
+                        Forms\Components\Toggle::make('large_party_requires_manual_confirmation')
+                            ->label('Grupos grandes requieren revision manual'),
+                        Forms\Components\Toggle::make('strict_area_preference')
+                            ->label('Zona preferida estricta'),
+                    ]),
+                Forms\Components\Section::make('Cancelacion publica')
+                    ->columns([
+                        'default' => 1,
+                        'md' => 2,
+                    ])
+                    ->schema([
+                        Forms\Components\Toggle::make('allow_public_cancellations')
+                            ->label('Permitir cancelaciones publicas'),
+                        Forms\Components\TextInput::make('min_hours_before_public_cancellation')
+                            ->label('Margen minimo para cancelar')
+                            ->suffix('h')
+                            ->required()
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(168),
                     ]),
             ])
             ->statePath('data');

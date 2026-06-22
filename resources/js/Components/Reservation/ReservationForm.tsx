@@ -3,17 +3,17 @@ import { useForm } from '@inertiajs/react';
 import { Button } from '@/Components/ui/button';
 import { DatePicker } from '@/Components/Reservation/DatePicker';
 import { TimeSlotPicker } from '@/Components/Reservation/TimeSlotPicker';
-import type { Locale, TimeSlot } from '@/types';
+import type { Area, Locale, TimeSlot } from '@/types';
 
 type ReservationFormData = {
   reservation_date: string;
   start_time: string;
   party_size: number;
+  preferred_area_id: string;
   customer_name: string;
   customer_email: string;
   customer_phone: string;
   locale: 'es' | 'en';
-  preferred_area: 'interior' | 'terraza';
   comments: string;
 };
 
@@ -26,9 +26,11 @@ function formatDateInputValue(date: Date) {
 }
 
 export function ReservationForm({
+  areas,
   locale = 'es',
   maxDaysInAdvance = 30,
 }: {
+  areas: Area[];
   locale?: Locale;
   maxDaysInAdvance?: number;
 }) {
@@ -41,11 +43,11 @@ export function ReservationForm({
     reservation_date: today,
     start_time: '',
     party_size: 2,
+    preferred_area_id: '',
     customer_name: '',
     customer_email: '',
     customer_phone: '',
     locale,
-    preferred_area: 'terraza',
     comments: '',
   });
 
@@ -54,6 +56,7 @@ export function ReservationForm({
     const params = new URLSearchParams({
       date: data.reservation_date,
       party_size: String(data.party_size),
+      preferred_area_id: data.preferred_area_id,
     });
 
     setLoadingSlots(true);
@@ -77,16 +80,11 @@ export function ReservationForm({
       });
 
     return () => controller.abort();
-  }, [data.reservation_date, data.party_size]);
+  }, [data.reservation_date, data.party_size, data.preferred_area_id]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    const comments = [
-      data.comments,
-      `Preferencia de zona: ${data.preferred_area}`,
-    ]
-      .filter(Boolean)
-      .join('\n');
+    const comments = data.comments;
 
     transform((formData) => ({
       ...formData,
@@ -147,11 +145,15 @@ export function ReservationForm({
           Interior o terraza
           <select
             className="h-11 rounded-md border border-slate-300 bg-white px-3"
-            value={data.preferred_area}
-            onChange={(event) => setData('preferred_area', event.target.value as 'interior' | 'terraza')}
+            value={data.preferred_area_id}
+            onChange={(event) => setData('preferred_area_id', event.target.value)}
           >
-            <option value="terraza">Terraza</option>
-            <option value="interior">Interior</option>
+            <option value="">Sin preferencia</option>
+            {areas.map((area) => (
+              <option key={area.id} value={String(area.id)}>
+                {area.name[locale] ?? area.name.es}
+              </option>
+            ))}
           </select>
         </label>
       </div>

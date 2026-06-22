@@ -1,9 +1,17 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
 import { ReservationForm } from '@/Components/Reservation/ReservationForm';
-import type { Locale, RestaurantSettings } from '@/types';
+import type { Area, Locale, RestaurantSettings } from '@/types';
 
-export default function ReservationCreate({ locale = 'es', settings }: { locale: Locale; settings: RestaurantSettings }) {
+export default function ReservationCreate({
+  areas,
+  locale = 'es',
+  settings,
+}: {
+  areas: Area[];
+  locale: Locale;
+  settings: RestaurantSettings;
+}) {
   return (
     <>
       <Head title="Reservar mesa | Restaurante A Saina" />
@@ -32,7 +40,7 @@ export default function ReservationCreate({ locale = 'es', settings }: { locale:
               </div>
             </div>
             <div className="p-6 sm:p-8">
-              <ReservationForm locale={locale} maxDaysInAdvance={settings.max_days_in_advance ?? 30} />
+              <ReservationForm areas={areas} locale={locale} maxDaysInAdvance={settings.max_days_in_advance ?? 30} />
             </div>
           </div>
         </div>
