@@ -35,19 +35,24 @@ php artisan db:seed --class=AdminUserSeeder --force
 if [ "${1:-start}" = "start" ]; then
     rm -f public/hot
     mkdir -p storage/logs
-    npm run dev -- --host 0.0.0.0 > storage/logs/vite.log 2>&1 &
 
-    for _ in {1..30}; do
-        if [ -f public/hot ]; then
-            break
+    if [ "${VITE_DEV_SERVER:-false}" = "true" ]; then
+        npm run dev -- --host 0.0.0.0 > storage/logs/vite.log 2>&1 &
+
+        for _ in {1..30}; do
+            if [ -f public/hot ]; then
+                break
+            fi
+
+            sleep 1
+        done
+
+        if [ ! -f public/hot ]; then
+            echo "Vite dev server did not create public/hot. Building static assets instead."
+            cat storage/logs/vite.log || true
+            npm run build
         fi
-
-        sleep 1
-    done
-
-    if [ ! -f public/hot ]; then
-        echo "Vite dev server did not create public/hot. Building static assets instead."
-        cat storage/logs/vite.log || true
+    else
         npm run build
     fi
 

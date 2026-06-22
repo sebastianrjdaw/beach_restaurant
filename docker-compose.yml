@@ -22,6 +22,7 @@ services:
       QUEUE_CONNECTION: database
       SESSION_DRIVER: database
       VITE_APP_NAME: "Restaurante A Saina"
+      VITE_DEV_SERVER: ${VITE_DEV_SERVER:-false}
       VITE_HMR_HOST: ${VITE_HMR_HOST:-localhost}
       VITE_USE_POLLING: "true"
     ports:
